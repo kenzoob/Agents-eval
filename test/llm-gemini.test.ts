@@ -65,6 +65,40 @@ describe("createGeminiProvider", () => {
     expect(result.message.content).toBe("ok after retry");
   });
 
+  it("retries using the retryDelay embedded in Gemini's JSON error body when there is no Retry-After header", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
+      calls++;
+      if (calls === 1) {
+        // Real shape Gemini returns on free-tier quota errors: no Retry-After
+        // header, the cooldown lives in the JSON body instead.
+        return new Response(
+          JSON.stringify([
+            {
+              error: {
+                code: 429,
+                status: "RESOURCE_EXHAUSTED",
+                details: [{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "0.01s" }],
+              },
+            },
+          ]),
+          { status: 429 },
+        );
+      }
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: "ok after retry" } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createGeminiProvider("gemini-key", "gemini-3.5-flash-lite", "gemini-embedding-001");
+    const result = await provider.chat([{ role: "user", content: "q" }], []);
+
+    expect(calls).toBe(2);
+    expect(result.message.content).toBe("ok after retry");
+  });
+
   it("gives up and throws after exhausting retries on persistent 503s", async () => {
     const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
       new Response("unavailable", { status: 503, headers: { "retry-after": "0" } }),

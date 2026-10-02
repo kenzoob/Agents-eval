@@ -76,6 +76,51 @@ describe("createOpenAiProvider.chat", () => {
     expect(sentBody.messages[2]).toEqual({ role: "tool", tool_call_id: "call_1", content: '{"id":"fs-02"}' });
   });
 
+  it("captures and round-trips a tool call's opaque extra_content (e.g. Gemini's thought_signature)", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: "",
+                tool_calls: [
+                  {
+                    id: "call_1",
+                    type: "function",
+                    function: { name: "search_docs", arguments: '{"query":"fs.stat"}' },
+                    extra_content: { google: { thought_signature: "opaque-token" } },
+                  },
+                ],
+              },
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1 },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createOpenAiProvider("sk-test", "gpt-4o-mini", "text-embedding-3-small");
+    const result = await provider.chat([{ role: "user", content: "q" }], []);
+    const toolCall = result.message.toolCalls![0]!;
+    expect(toolCall.extra).toEqual({ google: { thought_signature: "opaque-token" } });
+
+    // Now send it back as part of the next turn and confirm it is echoed verbatim.
+    const messages: ChatMessage[] = [
+      { role: "user", content: "q" },
+      { role: "assistant", content: "", toolCalls: [toolCall] },
+      { role: "tool", content: "{}", toolCallId: "call_1", name: "search_docs" },
+    ];
+    await provider.chat(messages, []);
+    const [, requestInit] = fetchMock.mock.calls[1]!;
+    const sentBody = JSON.parse(requestInit!.body as string);
+    expect(sentBody.messages[1].tool_calls[0].extra_content).toEqual({
+      google: { thought_signature: "opaque-token" },
+    });
+  });
+
   it("throws when the API returns no choices", async () => {
     vi.stubGlobal(
       "fetch",

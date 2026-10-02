@@ -6,6 +6,7 @@ export const OPENAI_BASE_URL = "https://api.openai.com/v1";
 interface OpenAiToolCall {
   id: string;
   function: { name: string; arguments: string };
+  extra_content?: Record<string, unknown>;
 }
 
 function toOpenAiMessages(messages: ChatMessage[]) {
@@ -21,6 +22,7 @@ function toOpenAiMessages(messages: ChatMessage[]) {
           id: c.id,
           type: "function" as const,
           function: { name: c.name, arguments: JSON.stringify(c.arguments) },
+          ...(c.extra ? { extra_content: c.extra } : {}),
         })),
       };
     }
@@ -65,6 +67,7 @@ export function createOpenAiProvider(
         id: c.id,
         name: c.function.name,
         arguments: JSON.parse(c.function.arguments) as Record<string, unknown>,
+        ...(c.extra_content ? { extra: c.extra_content } : {}),
       }));
       return {
         message: {

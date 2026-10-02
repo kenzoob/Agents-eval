@@ -11,6 +11,30 @@ function parseRetryAfterMs(header: string | null): number | undefined {
   return Number.isNaN(dateMs) ? undefined : Math.max(0, dateMs - Date.now());
 }
 
+// Google's API (Gemini) does not set a Retry-After header; it embeds the
+// cooldown in the JSON error body instead, e.g.
+// [{"error":{"details":[{"@type":".../google.rpc.RetryInfo","retryDelay":"49s"}]}}]
+function parseGoogleRetryDelayMs(bodyText: string): number | undefined {
+  try {
+    const parsed: unknown = JSON.parse(bodyText);
+    const entries = Array.isArray(parsed) ? parsed : [parsed];
+    for (const entry of entries) {
+      const details = (entry as { error?: { details?: unknown } })?.error?.details;
+      if (!Array.isArray(details)) continue;
+      for (const detail of details) {
+        const retryDelay = (detail as { retryDelay?: unknown })?.retryDelay;
+        if (typeof retryDelay === "string") {
+          const match = retryDelay.match(/^(\d+(?:\.\d+)?)s$/);
+          if (match) return Number(match[1]) * 1000;
+        }
+      }
+    }
+  } catch {
+    // Not JSON, or not the expected shape — fall through to generic backoff.
+  }
+  return undefined;
+}
+
 function backoffDelayMs(attempt: number): number {
   const cap = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * 2 ** attempt);
   return Math.random() * cap;
@@ -24,7 +48,9 @@ export async function fetchWithRetry(url: string, init: RequestInit): Promise<Re
   for (let attempt = 0; ; attempt++) {
     const response = await fetch(url, init);
     if (!RETRYABLE_STATUSES.has(response.status) || attempt === MAX_RETRIES) return response;
-    const delayMs = parseRetryAfterMs(response.headers.get("retry-after")) ?? backoffDelayMs(attempt);
+
+    const headerDelayMs = parseRetryAfterMs(response.headers.get("retry-after"));
+    const delayMs = headerDelayMs ?? parseGoogleRetryDelayMs(await response.text()) ?? backoffDelayMs(attempt);
     await sleep(delayMs);
   }
 }

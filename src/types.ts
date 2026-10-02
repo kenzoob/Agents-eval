@@ -15,6 +15,10 @@ export interface ToolCall {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  /** Opaque provider-specific data that must be echoed back verbatim on the
+   * next turn (e.g. Gemini's thought_signature). Never inspected, only
+   * round-tripped. */
+  extra?: Record<string, unknown>;
 }
 
 export interface ChatMessage {
