@@ -36,12 +36,21 @@ export function correctness(results: CaseResult[]): number {
 export function citationAccuracy(results: CaseResult[]): number {
   const cases = answerableResults(results);
   if (cases.length === 0) return 0;
-  const cited = cases.filter((r) => r.citedSources.some((id) => r.testCase.expected_sources.includes(sourceOf(id))));
+  const cited = cases.filter((r) =>
+    r.citedSources.some((id) => r.testCase.expected_sources.some((src) => normalizeSource(src) === sourceOf(id))),
+  );
   return cited.length / cases.length;
 }
 
+// Section ids are slugified (underscores become hyphens, e.g. child_process.md
+// -> child-process-01), but dataset.jsonl's expected_sources mirror doc
+// filenames (child_process). Normalize both sides so either convention matches.
+function normalizeSource(value: string): string {
+  return value.replace(/_/g, "-");
+}
+
 function sourceOf(sectionId: string): string {
-  return sectionId.replace(/-\d+$/, "");
+  return normalizeSource(sectionId.replace(/-\d+$/, ""));
 }
 
 export function abstentionRate(results: CaseResult[]): number {

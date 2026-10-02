@@ -2,9 +2,9 @@ import { TOOL_DEFINITIONS, createToolHandlers } from "./tools.js";
 import type { AgentResult, ChatMessage, IndexEntry, LlmProvider } from "./types.js";
 
 const MAX_STEPS = 5;
-const SECTION_ID_RE = /\b[a-z][a-z0-9_]*-\d{2}\b/g;
+const SECTION_ID_RE = /\b[a-z][a-z0-9_]*(?:-[a-z0-9_]+)*-\d{2}\b/g;
 
-function extractCitedSources(text: string): string[] {
+export function extractCitedSources(text: string): string[] {
   return [...new Set(text.match(SECTION_ID_RE) ?? [])];
 }
 
@@ -31,7 +31,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
   let lastContent = "";
 
   for (steps = 1; steps <= maxSteps; steps++) {
-    const result = await provider.chat(messages, TOOL_DEFINITIONS);
+    const isLastStep = steps === maxSteps;
+    const result = await provider.chat(messages, isLastStep ? [] : TOOL_DEFINITIONS);
     usage.inputTokens += result.usage.inputTokens;
     usage.outputTokens += result.usage.outputTokens;
     messages.push(result.message);

@@ -92,6 +92,16 @@ describe("citationAccuracy", () => {
     const results = [result({ citedSources: ["fs-01"] })];
     expect(citationAccuracy(results)).toBe(0);
   });
+
+  it("matches an underscored expected_source against a hyphenated section id", () => {
+    const results = [
+      result({
+        testCase: answerable({ expected_sources: ["child_process"] }),
+        citedSources: ["child-process-01"],
+      }),
+    ];
+    expect(citationAccuracy(results)).toBe(1);
+  });
 });
 
 describe("abstentionRate", () => {
