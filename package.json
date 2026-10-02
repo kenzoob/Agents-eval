@@ -1,0 +1,27 @@
+{
+  "name": "agent-evals",
+  "version": "0.1.0",
+  "description": "A RAG agent over a small Node.js documentation corpus, with an evaluation suite for correctness, citations, abstention and prompt-injection resistance.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "ingest": "tsx --env-file-if-exists=.env src/cli-ingest.ts",
+    "ask": "tsx --env-file-if-exists=.env src/cli-ask.ts",
+    "eval": "tsx --env-file-if-exists=.env evals/run.ts",
+    "compare": "tsx evals/compare.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
