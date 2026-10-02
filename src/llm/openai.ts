@@ -1,7 +1,7 @@
 import type { ChatMessage, ChatResult, LlmProvider, ToolCall, ToolDefinition } from "../types.js";
+import { fetchWithRetry } from "./retry.js";
 
-const CHAT_URL = "https://api.openai.com/v1/chat/completions";
-const EMBEDDINGS_URL = "https://api.openai.com/v1/embeddings";
+export const OPENAI_BASE_URL = "https://api.openai.com/v1";
 
 interface OpenAiToolCall {
   id: string;
@@ -28,10 +28,19 @@ function toOpenAiMessages(messages: ChatMessage[]) {
   });
 }
 
-export function createOpenAiProvider(apiKey: string, chatModel: string, embeddingModel: string): LlmProvider {
+export function createOpenAiProvider(
+  apiKey: string,
+  chatModel: string,
+  embeddingModel: string,
+  baseUrl: string = OPENAI_BASE_URL,
+): LlmProvider {
+  const base = baseUrl.replace(/\/+$/, "");
+  const chatUrl = `${base}/chat/completions`;
+  const embeddingsUrl = `${base}/embeddings`;
+
   return {
     async chat(messages, tools: ToolDefinition[]): Promise<ChatResult> {
-      const response = await fetch(CHAT_URL, {
+      const response = await fetchWithRetry(chatUrl, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
         body: JSON.stringify({
@@ -44,7 +53,7 @@ export function createOpenAiProvider(apiKey: string, chatModel: string, embeddin
         }),
       });
       if (!response.ok) {
-        throw new Error(`OpenAI API error ${response.status}: ${await response.text()}`);
+        throw new Error(`Chat API error ${response.status}: ${await response.text()}`);
       }
       const body = (await response.json()) as {
         choices: { message: { content: string | null; tool_calls?: OpenAiToolCall[] } }[];
@@ -68,13 +77,13 @@ export function createOpenAiProvider(apiKey: string, chatModel: string, embeddin
     },
 
     async embed(texts: string[]): Promise<number[][]> {
-      const response = await fetch(EMBEDDINGS_URL, {
+      const response = await fetchWithRetry(embeddingsUrl, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
         body: JSON.stringify({ model: embeddingModel, input: texts }),
       });
       if (!response.ok) {
-        throw new Error(`OpenAI embeddings error ${response.status}: ${await response.text()}`);
+        throw new Error(`Embeddings API error ${response.status}: ${await response.text()}`);
       }
       const body = (await response.json()) as { data: { embedding: number[] }[] };
       return body.data.map((d) => d.embedding);

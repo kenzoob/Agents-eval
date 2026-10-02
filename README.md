@@ -120,11 +120,21 @@ cp .env.example .env
 
 | Variable | Description |
 |----------|-------------|
-| `LLM_PROVIDER` | `anthropic`, `openai` or `ollama` |
+| `LLM_PROVIDER` | `anthropic`, `openai`, `gemini` or `ollama` |
 | `LLM_API_KEY` | API key (not needed for Ollama) |
 | `CHAT_MODEL` | Chat model name |
 | `EMBEDDING_MODEL` | Embedding model name |
 | `OLLAMA_URL` | Defaults to `http://localhost:11434` |
+| `EVAL_DELAY_MS` | `npm run eval` only: pause this many ms between cases (default `0`), useful to stay under a free-tier rate limit |
+
+**Gemini (free tier, via Google AI Studio)**: set `LLM_PROVIDER=gemini`, `LLM_API_KEY` to your
+AI Studio key, `CHAT_MODEL=gemini-3.5-flash-lite` (Google's current recommendation for new
+projects; confirmed free-tier and function-calling support), and
+`EMBEDDING_MODEL=gemini-embedding-001` — not `gemini-embedding-2`, which aggregates a batch of
+inputs into a single embedding instead of one per input. Gemini is served through its
+OpenAI-compatible endpoint, reusing the same adapter as `openai`. Free-tier requests are
+rate-limited (HTTP 429); the eval runner retries with backoff automatically, but `EVAL_DELAY_MS`
+helps avoid hitting the limit in the first place.
 
 ### Usage
 

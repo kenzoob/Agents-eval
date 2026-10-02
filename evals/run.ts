@@ -18,10 +18,15 @@ import {
 } from "./metrics.js";
 import { formatReport } from "./report.js";
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const args = process.argv.slice(2);
 const promptFlagIndex = args.indexOf("--prompt");
 const promptVersion = (promptFlagIndex >= 0 ? args[promptFlagIndex + 1] : "v1") ?? "v1";
 const systemPrompt = promptVersion === "v2" ? V2_PROMPT : V1_PROMPT;
+const evalDelayMs = Number(process.env.EVAL_DELAY_MS ?? "0");
 
 const config = loadConfig();
 const provider = createProvider(config);
@@ -54,6 +59,8 @@ for (const testCase of dataset) {
     judgePass,
   });
   console.log(`[${testCase.id}] ${testCase.type} done in ${latencyMs}ms`);
+
+  if (evalDelayMs > 0) await sleep(evalDelayMs);
 }
 
 const metrics = {

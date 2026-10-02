@@ -1,4 +1,4 @@
-export type ProviderName = "anthropic" | "openai" | "ollama";
+export type ProviderName = "anthropic" | "openai" | "ollama" | "gemini";
 
 export interface Config {
   provider: ProviderName;
@@ -9,8 +9,8 @@ export interface Config {
 }
 
 function requireProvider(value: string | undefined): ProviderName {
-  if (value === "anthropic" || value === "openai" || value === "ollama") return value;
-  throw new Error(`LLM_PROVIDER must be anthropic, openai or ollama, got: ${value}`);
+  if (value === "anthropic" || value === "openai" || value === "ollama" || value === "gemini") return value;
+  throw new Error(`LLM_PROVIDER must be anthropic, openai, ollama or gemini, got: ${value}`);
 }
 
 export function loadConfig(): Config {
