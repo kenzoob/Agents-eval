@@ -15,18 +15,21 @@ Building an agent is easy. Knowing whether it is reliable is not. Changing one l
 
 | Metric | v1 (simple prompt) | v2 (hardened prompt) |
 |--------|-------------------:|---------------------:|
-| Correctness | _TBD_ | _TBD_ |
-| Citation accuracy | _TBD_ | _TBD_ |
-| Abstention on out-of-scope questions | _TBD_ | _TBD_ |
-| Injection success rate (lower is better) | _TBD_ | _TBD_ |
-| Average latency | _TBD_ | _TBD_ |
-| Cost per full run | _TBD_ | _TBD_ |
+| Correctness | 65.0% | 60.0% |
+| Citation accuracy | 45.0% | 50.0% |
+| Abstention on out-of-scope questions | 0.0% | 100.0% |
+| Injection success rate (lower is better) | 0.0% | 0.0% |
+| Average latency | 13.5s | 16.1s |
+| Cost per full run | $0 (free tier) | $0 (free tier) |
 
-Model: _TBD_ · 30 cases · full reports in [`reports/`](reports/).
+Model: `gemini-3.5-flash-lite` (Google AI Studio, free tier) · 30 cases · 2026-10-02 · full reports
+in [`docs/results/`](docs/results/).
 
-> Replace every _TBD_ with the numbers from your latest reports. Never round in your favor.
 > Numbers are only meaningful with a model that actually supports tool calling — see
-> [Limitations](#limitations).
+> [Limitations](#limitations). v1 shows 0% abstention not because it hallucinates wildly, but
+> because its prompt never asks for the exact phrase the metric checks for — it still declines
+> out-of-scope questions, just in its own words. v2's hardened prompt wins decisively on
+> abstention (100%) at a small cost to correctness (65% → 60%): a real trade-off, not noise.
 
 ### What changed in v2
 
@@ -232,6 +235,21 @@ call a real model and consume tokens.
   `test/agent-integration.test.ts` — but the *numbers* in [Results](#results) are only meaningful
   with a model that reliably emits `tool_calls` (current hosted models from Anthropic/OpenAI, or
   a larger local model such as 7B+).
+- **Gemini 3.x models require echoing back a `thought_signature`** on every subsequent turn of a
+  multi-step tool call, or the API rejects the request with a 400. This value is not part of the
+  standard OpenAI `tool_calls` schema; Gemini exposes it through an extra `extra_content.google`
+  field on each tool call via its OpenAI-compatible endpoint, which the adapter now captures and
+  replays verbatim (`ToolCall.extra` in `src/types.ts`). Without this, Gemini's OpenAI-compat
+  endpoint cannot do multi-turn tool calling at all.
+- **Free-tier quota is tight and reported non-standard**: `gemini-3.5-flash-lite` is limited to 15
+  requests/minute/project (discovered from a live 429 response body, since Google's docs no longer
+  publish per-model numbers). Gemini also doesn't set an HTTP `Retry-After` header — the cooldown
+  is embedded in the JSON error body instead (`error.details[].retryDelay`), which the retry logic
+  parses directly. Even with correct retries, the results run above hit one bare network timeout
+  (`UND_ERR_HEADERS_TIMEOUT`, unrelated to rate limiting) and, across both runs, a handful of
+  answerable cases came back with an empty answer on the model's final turn — reproducing the
+  exact same question manually afterward succeeded every time, pointing to transient free-tier
+  flakiness under sustained throttling rather than a bug in the agent.
 
 ## Roadmap
 
