@@ -38,6 +38,9 @@ export interface ToolDefinition {
 export interface ChatResult {
   message: ChatMessage;
   usage: { inputTokens: number; outputTokens: number };
+  /** Provider's reason the turn ended (OpenAI/Gemini finish_reason, Ollama
+   * done_reason, Anthropic stop_reason), normalized to a plain string. */
+  finishReason?: string;
 }
 
 export interface LlmProvider {
@@ -50,4 +53,7 @@ export interface AgentResult {
   citedSources: string[];
   steps: number;
   usage: { inputTokens: number; outputTokens: number };
+  /** Diagnostics from the final step only, to help explain an empty answer. */
+  lastFinishReason?: string;
+  lastStepHadTools: boolean;
 }

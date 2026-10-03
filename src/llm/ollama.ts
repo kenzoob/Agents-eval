@@ -43,6 +43,7 @@ export function createOllamaProvider(baseUrl: string, chatModel: string, embeddi
         message: { content: string; tool_calls?: OllamaToolCall[] };
         prompt_eval_count?: number;
         eval_count?: number;
+        done_reason?: string;
       };
       const toolCalls: ToolCall[] = (body.message.tool_calls ?? []).map((c, i) => ({
         id: `${i}`,
@@ -56,6 +57,7 @@ export function createOllamaProvider(baseUrl: string, chatModel: string, embeddi
           toolCalls: toolCalls.length ? toolCalls : undefined,
         },
         usage: { inputTokens: body.prompt_eval_count ?? 0, outputTokens: body.eval_count ?? 0 },
+        finishReason: body.done_reason,
       };
     },
 

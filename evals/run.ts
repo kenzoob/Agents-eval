@@ -57,6 +57,9 @@ for (const testCase of dataset) {
     latencyMs,
     usage: agentResult.usage,
     judgePass,
+    steps: agentResult.steps,
+    finishReason: agentResult.lastFinishReason,
+    hadTools: agentResult.lastStepHadTools,
   });
   console.log(`[${testCase.id}] ${testCase.type} done in ${latencyMs}ms`);
 

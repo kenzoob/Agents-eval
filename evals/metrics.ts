@@ -7,6 +7,10 @@ export interface CaseResult {
   latencyMs: number;
   usage: { inputTokens: number; outputTokens: number };
   judgePass?: boolean;
+  /** Diagnostics from the agent's last step, to help explain an empty answer. */
+  steps?: number;
+  finishReason?: string;
+  hadTools?: boolean;
 }
 
 const ABSTENTION_RE = /don'?t know|do not know/i;

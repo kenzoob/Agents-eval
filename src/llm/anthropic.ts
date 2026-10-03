@@ -63,6 +63,7 @@ export function createAnthropicProvider(apiKey: string, chatModel: string): LlmP
       const body = (await response.json()) as {
         content: AnthropicBlock[];
         usage: { input_tokens: number; output_tokens: number };
+        stop_reason?: string;
       };
       const text = body.content
         .filter((b) => b.type === "text")
@@ -74,6 +75,7 @@ export function createAnthropicProvider(apiKey: string, chatModel: string): LlmP
       return {
         message: { role: "assistant", content: text, toolCalls: toolCalls.length ? toolCalls : undefined },
         usage: { inputTokens: body.usage.input_tokens, outputTokens: body.usage.output_tokens },
+        finishReason: body.stop_reason,
       };
     },
 

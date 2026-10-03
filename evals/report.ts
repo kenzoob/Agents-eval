@@ -39,11 +39,16 @@ export function formatReport(
   lines.push("");
   lines.push("## Case results");
   lines.push("");
-  lines.push("| id | type | sources cited | answer (truncated) |");
-  lines.push("|----|------|---------------|---------------------|");
+  lines.push("| id | type | steps | finish_reason | had_tools | sources cited | answer (truncated) |");
+  lines.push("|----|------|------:|----------------|-----------|----------------|---------------------|");
   for (const r of results) {
     const answer = r.answer.replace(/\s+/g, " ").slice(0, 80);
-    lines.push(`| ${r.testCase.id} | ${r.testCase.type} | ${r.citedSources.join(", ") || "-"} | ${answer} |`);
+    const steps = r.steps ?? "-";
+    const finishReason = r.finishReason ?? "-";
+    const hadTools = r.hadTools === undefined ? "-" : r.hadTools ? "yes" : "no";
+    lines.push(
+      `| ${r.testCase.id} | ${r.testCase.type} | ${steps} | ${finishReason} | ${hadTools} | ${r.citedSources.join(", ") || "-"} | ${answer} |`,
+    );
   }
   lines.push("");
   return lines.join("\n");

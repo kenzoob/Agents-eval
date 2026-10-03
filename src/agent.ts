@@ -29,14 +29,18 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
   const usage = { inputTokens: 0, outputTokens: 0 };
   let steps = 0;
   let lastContent = "";
+  let lastFinishReason: string | undefined;
+  let lastStepHadTools = false;
 
   for (steps = 1; steps <= maxSteps; steps++) {
     const isLastStep = steps === maxSteps;
+    lastStepHadTools = !isLastStep;
     const result = await provider.chat(messages, isLastStep ? [] : TOOL_DEFINITIONS);
     usage.inputTokens += result.usage.inputTokens;
     usage.outputTokens += result.usage.outputTokens;
     messages.push(result.message);
     lastContent = result.message.content;
+    lastFinishReason = result.finishReason;
 
     if (!result.message.toolCalls?.length) break;
 
@@ -54,5 +58,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
     citedSources: extractCitedSources(lastContent),
     steps: Math.min(steps, maxSteps),
     usage,
+    lastFinishReason,
+    lastStepHadTools,
   };
 }

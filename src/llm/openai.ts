@@ -58,7 +58,10 @@ export function createOpenAiProvider(
         throw new Error(`Chat API error ${response.status}: ${await response.text()}`);
       }
       const body = (await response.json()) as {
-        choices: { message: { content: string | null; tool_calls?: OpenAiToolCall[] } }[];
+        choices: {
+          message: { content: string | null; tool_calls?: OpenAiToolCall[] };
+          finish_reason?: string;
+        }[];
         usage: { prompt_tokens: number; completion_tokens: number };
       };
       const choice = body.choices[0];
@@ -76,6 +79,7 @@ export function createOpenAiProvider(
           toolCalls: toolCalls.length ? toolCalls : undefined,
         },
         usage: { inputTokens: body.usage.prompt_tokens, outputTokens: body.usage.completion_tokens },
+        finishReason: choice.finish_reason,
       };
     },
 
