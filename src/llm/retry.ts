@@ -1,6 +1,12 @@
 const MAX_RETRIES = 6;
 const BASE_DELAY_MS = 500;
 const MAX_DELAY_MS = 30_000;
+// Upper bound on any single wait, including server-dictated ones (Retry-After
+// header or Google's JSON-body retryDelay). A daily quota error can report a
+// retryDelay of several hours; honoring that literally would hang the process
+// instead of failing. Capping it means we burn through MAX_RETRIES quickly
+// and surface the real error instead of sleeping for most of a day.
+const MAX_RETRY_WAIT_MS = 120_000;
 const RETRYABLE_STATUSES = new Set([429, 503]);
 
 function parseRetryAfterMs(header: string | null): number | undefined {
@@ -51,6 +57,6 @@ export async function fetchWithRetry(url: string, init: RequestInit): Promise<Re
 
     const headerDelayMs = parseRetryAfterMs(response.headers.get("retry-after"));
     const delayMs = headerDelayMs ?? parseGoogleRetryDelayMs(await response.text()) ?? backoffDelayMs(attempt);
-    await sleep(delayMs);
+    await sleep(Math.min(delayMs, MAX_RETRY_WAIT_MS));
   }
 }

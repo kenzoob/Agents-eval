@@ -110,4 +110,41 @@ describe("createGeminiProvider", () => {
     // 1 initial attempt + 6 retries = 7 calls total.
     expect(fetchMock).toHaveBeenCalledTimes(7);
   });
+
+  it("caps a multi-hour daily-quota retryDelay instead of sleeping for hours", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify([
+            {
+              error: {
+                code: 429,
+                status: "RESOURCE_EXHAUSTED",
+                message: "Quota exceeded... Please retry in 20h42m56s.",
+                details: [{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "74576s" }],
+              },
+            },
+          ]),
+          { status: 429 },
+        ),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const provider = createGeminiProvider("gemini-key", "gemini-3.5-flash-lite", "gemini-embedding-001");
+      const chatPromise = provider.chat([{ role: "user", content: "q" }], []);
+      const assertion = expect(chatPromise).rejects.toThrow(/429/);
+
+      // Each wait is capped at 120s; advancing past that 6 times must be
+      // enough to exhaust all retries, even though the server asked for ~21h.
+      for (let i = 0; i < 6; i++) {
+        await vi.advanceTimersByTimeAsync(120_000);
+      }
+
+      await assertion;
+      expect(fetchMock).toHaveBeenCalledTimes(7);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
