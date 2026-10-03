@@ -15,21 +15,26 @@ Building an agent is easy. Knowing whether it is reliable is not. Changing one l
 
 | Metric | v1 (simple prompt) | v2 (hardened prompt) |
 |--------|-------------------:|---------------------:|
-| Correctness | 65.0% | 60.0% |
-| Citation accuracy | 45.0% | 50.0% |
+| Correctness | 95.0% | 60.0% |
+| Citation accuracy | 55.0% | 60.0% |
 | Abstention on out-of-scope questions | 0.0% | 100.0% |
 | Injection success rate (lower is better) | 0.0% | 0.0% |
-| Average latency | 13.5s | 16.1s |
-| Cost per full run | $0 (free tier) | $0 (free tier) |
+| Average latency | 9.1s | 9.9s |
+| Cost per full run | $0 on the free tier (≈ $0.3232 at paid rates) | $0 on the free tier (≈ $0.3017 at paid rates) |
 
-Model: `gemini-3.5-flash-lite` (Google AI Studio, free tier) · 30 cases · 2026-10-02 · full reports
+Model: `gemini-3.1-flash-lite` (Google AI Studio, free tier) · 30 cases · 2026-10-03 · full reports
 in [`docs/results/`](docs/results/).
 
 > Numbers are only meaningful with a model that actually supports tool calling — see
-> [Limitations](#limitations). v1 shows 0% abstention not because it hallucinates wildly, but
-> because its prompt never asks for the exact phrase the metric checks for — it still declines
-> out-of-scope questions, just in its own words. v2's hardened prompt wins decisively on
-> abstention (100%) at a small cost to correctness (65% → 60%): a real trade-off, not noise.
+> [Limitations](#limitations). v1 is strong here (95% correctness) because its prompt just answers
+> from whatever it retrieves. v2's hardened prompt is a hard trade: it reaches perfect abstention
+> (100%) on out-of-scope questions and improves citation accuracy (55% → 60%), but it also declines
+> several genuinely in-scope questions with "I don't know based on the documentation" when its own
+> retrieval came up short — correctness drops to 60% as a result. That is the real cost of an
+> abstention-first prompt: it does not distinguish "no answer exists" from "I didn't find the
+> section this time," so a stricter retrieval step (more candidates per search, or a second query
+> rephrase before giving up) would likely close most of that gap without reopening it to
+> hallucination.
 
 ### What changed in v2
 
@@ -241,15 +246,19 @@ call a real model and consume tokens.
   field on each tool call via its OpenAI-compatible endpoint, which the adapter now captures and
   replays verbatim (`ToolCall.extra` in `src/types.ts`). Without this, Gemini's OpenAI-compat
   endpoint cannot do multi-turn tool calling at all.
-- **Free-tier quota is tight and reported non-standard**: `gemini-3.5-flash-lite` is limited to 15
-  requests/minute/project (discovered from a live 429 response body, since Google's docs no longer
-  publish per-model numbers). Gemini also doesn't set an HTTP `Retry-After` header — the cooldown
-  is embedded in the JSON error body instead (`error.details[].retryDelay`), which the retry logic
-  parses directly. Even with correct retries, the results run above hit one bare network timeout
-  (`UND_ERR_HEADERS_TIMEOUT`, unrelated to rate limiting) and, across both runs, a handful of
-  answerable cases came back with an empty answer on the model's final turn — reproducing the
-  exact same question manually afterward succeeded every time, pointing to transient free-tier
-  flakiness under sustained throttling rather than a bug in the agent.
+- **Free-tier quota is tight, varies wildly by model, and is reported non-standard.** Discovered
+  from live 429 response bodies, since Google's docs no longer publish per-model numbers:
+  `gemini-3.5-flash-lite` allows 500 requests/day/project, but `gemini-3.8-flash` allows only 20 —
+  easy to exhaust by accident (both got fully exhausted while building this project). Gemini also
+  never sets an HTTP `Retry-After` header; the cooldown lives in the JSON error body instead
+  (`error.details[].retryDelay`), which the retry logic parses directly — and on a daily-quota 429
+  that value can be tens of thousands of seconds (~21h seen in practice). Early versions of the
+  retry logic honored that literally and hung for hours with zero output; it now caps every wait at
+  120s so it fails fast with a clear error instead (`MAX_RETRY_WAIT_MS` in `src/llm/retry.ts`).
+  Separately, even on a model with quota to spare, a small fraction of answerable cases still came
+  back with an empty final answer or a one-off `UND_ERR_HEADERS_TIMEOUT` network timeout —
+  reproducing the same question manually afterward succeeded every time, pointing to transient
+  free-tier flakiness under load rather than a bug in the agent.
 
 ## Roadmap
 
