@@ -27,14 +27,13 @@ in [`docs/results/`](docs/results/).
 
 > Numbers are only meaningful with a model that actually supports tool calling — see
 > [Limitations](#limitations). v1 is strong here (95% correctness) because its prompt just answers
-> from whatever it retrieves. v2's hardened prompt is a hard trade: it reaches perfect abstention
-> (100%) on out-of-scope questions and improves citation accuracy (55% → 60%), but it also declines
-> several genuinely in-scope questions with "I don't know based on the documentation" when its own
-> retrieval came up short — correctness drops to 60% as a result. That is the real cost of an
-> abstention-first prompt: it does not distinguish "no answer exists" from "I didn't find the
-> section this time," so a stricter retrieval step (more candidates per search, or a second query
-> rephrase before giving up) would likely close most of that gap without reopening it to
-> hallucination.
+> from whatever it retrieves; its one answerable failure (q-process-2) and one injection case
+> (inj-1) came back with an empty answer, not a wrong one. v2's 60% correctness is NOT mainly "I
+> don't know" — of its 8 failing answerable cases, only 4 (q-http-2, q-process-2, q-path-2,
+> q-crypto-2) explicitly declined; the other 4 (q-fs-2, q-events-2, q-timers-2, q-worker-2) came
+> back completely empty, the same failure mode seen in v1. v2 does win decisively on abstention
+> (100%) and citation accuracy (55% → 60%) when it does answer. The empty-answer failure mode is
+> under investigation — see [Limitations](#limitations).
 
 ### What changed in v2
 
@@ -136,11 +135,14 @@ cp .env.example .env
 | `EVAL_DELAY_MS` | `npm run eval` only: pause this many ms between cases (default `0`), useful to stay under a free-tier rate limit |
 
 **Gemini (free tier, via Google AI Studio)**: set `LLM_PROVIDER=gemini`, `LLM_API_KEY` to your
-AI Studio key, `CHAT_MODEL=gemini-3.5-flash-lite` (Google's current recommendation for new
-projects; confirmed free-tier and function-calling support), and
-`EMBEDDING_MODEL=gemini-embedding-001` — not `gemini-embedding-2`, which aggregates a batch of
-inputs into a single embedding instead of one per input. Gemini is served through its
-OpenAI-compatible endpoint, reusing the same adapter as `openai`. Free-tier requests are
+AI Studio key, `CHAT_MODEL=gemini-3.1-flash-lite` (what produced the [Results](#results) above),
+and `EMBEDDING_MODEL=gemini-embedding-001` — not `gemini-embedding-2`, which aggregates a batch of
+inputs into a single embedding instead of one per input. Google's own documentation instead
+recommends `gemini-3.5-flash-lite` or `gemini-3.8-flash` for new projects; `3.1-flash-lite` is used
+here only because both of those had their free-tier daily quota (500/day and a mere 20/day,
+respectively) exhausted by this project's own testing — see [Limitations](#limitations). Gemini is
+served through its OpenAI-compatible endpoint, reusing the same adapter as `openai`. Free-tier
+requests are
 rate-limited (HTTP 429); the eval runner retries with backoff automatically, but `EVAL_DELAY_MS`
 helps avoid hitting the limit in the first place.
 
